@@ -1,0 +1,209 @@
+package casey;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.HashSet;
+import java.util.Set;
+
+import javax.swing.JButton;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
+import javax.swing.JTextField;
+import javax.swing.SwingUtilities;
+
+
+public class topicModeller extends JFrame {
+	// Define class variables
+    private static final long serialVersionUID = 1L;
+    private JTextField textField1;
+    private JTextField textField2;
+    private FileSelector fileSelector1;
+    private FileSelector fileSelector2;
+    private JTextArea commonWordsTextArea;
+    private JTextArea similarityTextArea;
+   
+
+    public topicModeller() {
+    	
+    	// Set up the GUI window
+        setTitle("Topic Modeller");
+        setSize(500, 400);
+        setDefaultCloseOperation(EXIT_ON_CLOSE);
+
+        JPanel panel = new JPanel();
+
+        JLabel label1 = new JLabel("Selected File 1:");
+        panel.add(label1);
+
+        textField1 = new JTextField(20);
+        textField1.setEditable(false);
+        panel.add(textField1);
+
+        fileSelector1 = new FileSelector(textField1);
+        JButton button1 = new JButton("Select File 1");
+        button1.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                fileSelector1.selectFile();
+            }
+        });
+        panel.add(button1);
+
+        JLabel label2 = new JLabel("Selected File 2:");
+        panel.add(label2);
+
+        textField2 = new JTextField(20);
+        textField2.setEditable(false);
+        panel.add(textField2);
+
+        fileSelector2 = new FileSelector(textField2);
+        JButton button2 = new JButton("Select File 2");
+        button2.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                fileSelector2.selectFile();
+            }
+        });
+        panel.add(button2);
+
+        JButton compareButton = new JButton("Compare Files");
+        compareButton.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                compareFiles();
+            }
+        });
+        panel.add(compareButton);
+
+        commonWordsTextArea = new JTextArea(10, 30);
+        commonWordsTextArea.setEditable(false);
+        commonWordsTextArea.setText("Common Words:\n"); // Set permanent heading
+        JScrollPane commonScrollPane = new JScrollPane(commonWordsTextArea);
+        panel.add(commonScrollPane);
+
+        similarityTextArea = new JTextArea(3, 30);
+        similarityTextArea.setEditable(false);
+        similarityTextArea.setText("Similarity:\n"); // Set permanent heading
+        JScrollPane similarityScrollPane = new JScrollPane(similarityTextArea);
+        panel.add(similarityScrollPane);
+
+        add(panel);
+        setVisible(true);
+    }
+
+    private void compareFiles() {
+        String file1Path = textField1.getText();
+        String file2Path = textField2.getText();
+        StringBuilder output = new StringBuilder();
+
+        try {
+            BufferedReader reader1 = new BufferedReader(new FileReader(file1Path));
+            BufferedReader reader2 = new BufferedReader(new FileReader(file2Path));
+
+            Set<String> words1 = getFirstTenNonStopWords(reader1);
+            Set<String> words2 = getFirstTenNonStopWords(reader2);
+
+            Set<String> commonWords = new HashSet<>(words1);
+            commonWords.retainAll(words2);
+
+            commonWordsTextArea.setText("Common Words:\n");
+            for (String word : commonWords) {
+                commonWordsTextArea.append(word + "\n");
+                output.append(word).append("\n"); // Append common words to output
+            }
+
+            // Write the common words to a file
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter("common_words_output.txt"))) {
+                writer.write(output.toString());
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
+
+            int intersectionSize = commonWords.size();
+            double similarityPercentage = (double) intersectionSize / (words1.size() + words2.size() - intersectionSize) * 100;
+            similarityTextArea.setText("Similarity Percentage: " + similarityPercentage + "%");
+
+            if (similarityPercentage > 80) {
+                similarityTextArea.append("\nDefinitely about the same topic.");
+            } else if(similarityPercentage > 50 && similarityPercentage < 80 ){
+                similarityTextArea.append("\nLikely to be about the same topic.");
+            }
+            else if(similarityPercentage<50) {
+                similarityTextArea.append("\nNot likely to be about the same topic.");
+            }
+
+            reader1.close();
+            reader2.close();
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+    }
+    private Set<String> getFirstTenNonStopWords(BufferedReader reader) throws IOException {
+        Set<String> nonStopWords = new HashSet<>();
+        Set<String> stopWords = createStopWordsSet(); // Create set of stop words
+        int wordCount = 0;
+
+        String line;
+        while ((line = reader.readLine()) != null && wordCount < 10) {
+            String[] lineWords = line.split("\\s+");
+            for (String word : lineWords) {
+                if (!stopWords.contains(word.toLowerCase())) { // Check if word is not a stop word
+                    nonStopWords.add(word.toLowerCase()); // Add lowercase version of word to nonStopWords set
+                    wordCount++;
+                    if (wordCount >= 10) {
+                        break; // Break the loop if 10 non-stop words are found
+                    }
+                }
+            }
+        }
+        return nonStopWords;
+    }
+
+
+    private Set<String> createStopWordsSet() {
+        Set<String> stopWords = new HashSet<>();
+        // Add stop words to list
+        stopWords.add("a");
+        stopWords.add("an");
+        stopWords.add("and");
+        stopWords.add("are");
+        stopWords.add("as");
+        stopWords.add("at");
+        stopWords.add("be");
+        stopWords.add("by");
+        stopWords.add("for");
+        stopWords.add("from");
+        stopWords.add("has");
+        stopWords.add("have");
+        stopWords.add("in");
+        stopWords.add("is");
+        stopWords.add("it");
+        stopWords.add("its");
+        stopWords.add("of");
+        stopWords.add("on");
+        stopWords.add("that");
+        stopWords.add("the");
+        stopWords.add("to");
+        stopWords.add("was");
+        stopWords.add("were");
+        stopWords.add("will");
+        stopWords.add("with");
+        stopWords.add("they");
+        stopWords.add("each");
+        stopWords.add("our");
+        stopWords.add("their");
+
+        return stopWords;
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(new Runnable() {
+            public void run() {
+                new topicModeller();
+            }
+        });
+    }
